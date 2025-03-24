@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useMouseEffect } from "@/components/player/hooks/useMouseEffect";
 import TimeProgress from "@/components/player/controls/time-progress";
 import StatusLabel from "@/components/player/controls/status-label";
@@ -10,6 +10,10 @@ import {
 import PlayerCard from "@/components/player/ui/player-card";
 import { SoundToggles } from "./controls/sound-toggles";
 import { MainControls } from "./controls/main-controls";
+import { useAudioPlayer } from "./hooks/useAudioPlayer";
+import { useAmbientSounds } from "./hooks/useAmbientSounds";
+import { useAudioAnalyzer } from "./hooks/useAudioAnalyzer";
+import { useAudioReactiveBrightness } from "./hooks/useReactiveBrightness";
 
 const SOUND_CONFIG = [
   {
@@ -32,74 +36,74 @@ const SOUND_CONFIG = [
   },
 ];
 
+const initialSounds = {
+  campfire: false,
+  night: false,
+  rain: false,
+};
+
 export const Player = () => {
-  const audioRef = useRef(null);
-  const mediaSourceRef = useRef(null);
   const brightRef = useRef(null);
   const cardRef = useRef(null);
+
   useMouseEffect(brightRef, cardRef);
+  const {
+    audio,
+    currentTime,
+    duration,
+    isLoading,
+    isPlaying,
+    nextTrack,
+    play: playTrack,
+    previousTrack,
+    setTime,
+  } = useAudioPlayer();
 
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(100);
-  const [sounds, setSounds] = useState({
-    campfire: false,
-    night: true,
-    rain: false,
-  });
+  const { initAnalyzer, isAnalyzerReady, getFrequencyData } =
+    useAudioAnalyzer(audio);
 
-  const toggleSound = (soundId) => {
-    setSounds((prev) => {
-      return {
-        ...prev,
-        [soundId]: !prev[soundId],
-      };
-    });
-  };
+  useAudioReactiveBrightness(brightRef, { isAnalyzerReady, getFrequencyData });
 
   const play = () => {
-    setIsPlaying((prev) => !prev);
-  };
+    if (!isAnalyzerReady) {
+      initAnalyzer();
+    }
 
-  const handleTimeChange = (e) => {
-    const time = e.target.value;
-    setCurrentTime(time);
+    playTrack();
   };
 
   useEffect(() => {
-    const mediaSource = new MediaSource();
-    mediaSourceRef.current = mediaSource;
-
-    if (audioRef.current) {
-      audioRef.current.src = URL.createObjectURL(mediaSource);
+    if (isPlaying && isAnalyzerReady) {
+      const frequencyData = getFrequencyData();
+      console.log(frequencyData);
     }
+  }, [isPlaying, isAnalyzerReady, getFrequencyData, currentTime]);
 
-    const onSourceOpen = () => {
-      console.log("Media source opened");
-    };
+  const { sounds, toggleSound } = useAmbientSounds(initialSounds);
 
-    mediaSource.addEventListener("sourceopen", onSourceOpen);
-
-    return () => {
-      mediaSource.removeEventListener("sourceopen", onSourceOpen);
-      URL.revokeObjectURL(audioRef.current?.src);
-    };
-  }, [audioRef]);
+  const handleTimeChange = (e) => {
+    const time = parseFloat(e.target.value);
+    setTime(time);
+  };
 
   return (
     <>
-      <audio ref={audioRef} />
-      {/* <div className="absolute top-1/2 left-1/2 aspect-square w-4xl -translate-1/2 bg-radial from-cyan-200/20 from-0% to-transparent to-50% bg-center"></div> */}
+      <audio ref={audio} />
 
       <PlayerCard ref={cardRef} brightRef={brightRef}>
         <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-white/10">
-          <StatusLabel isPlaying={isPlaying} />
+          <StatusLabel isPlaying={isPlaying} isLoading={isLoading} />
         </div>
         <TimeProgress
           handleTimeChange={handleTimeChange}
           currentTime={currentTime}
+          duration={duration}
         />
-        <MainControls isPlaying={isPlaying} play={play} />
+        <MainControls
+          isPlaying={isPlaying}
+          controls={{ play, nextTrack, previousTrack }}
+          disabled={isLoading}
+        />
         <SoundToggles
           sounds={SOUND_CONFIG}
           toggleStates={sounds}

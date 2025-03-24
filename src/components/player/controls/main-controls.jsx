@@ -1,12 +1,13 @@
 import { SkipButton } from "@/components/player/ui/skip-button";
 import { PlayButton } from "@/components/player/ui/play-button";
 
-export const MainControls = ({ play, isPlaying }) => {
+export const MainControls = ({ controls, isPlaying }) => {
+  const { play, nextTrack, previousTrack } = controls;
   return (
     <div className="flex gap-4">
-      <SkipButton />
+      <SkipButton onClick={previousTrack} />
       <PlayButton onClick={play} isPlaying={isPlaying} />
-      <SkipButton forward />
+      <SkipButton forward onClick={nextTrack} />
     </div>
   );
 };
