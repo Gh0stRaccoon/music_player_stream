@@ -1,58 +1,53 @@
-import { useEffect } from 'react';
+import { useEffect } from "react";
 
-export const useMouseEffect = (brightRef, cardRef) => {
+export function useMouseEffect(brightRef, cardRef) {
   useEffect(() => {
-    if (!brightRef?.current || !cardRef?.current) return;
+    // Use RAF for smoother updates
+    let rafId;
+    let mouseX = 0;
+    let mouseY = 0;
 
-    const handleMouseMove = (event) => {
-      const card = cardRef.current;
-      const bright = brightRef.current;
+    // Throttled handler only captures position
+    const handleMouseMove = throttle((e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
 
-      if (!card || !bright) return;
+    // RAF for smooth animation
+    const updatePosition = () => {
+      if (cardRef.current && brightRef.current) {
+        const card = cardRef.current.getBoundingClientRect();
 
-      const rect = card.getBoundingClientRect();
-      const x = event.clientX - rect.left; // x position within the element
-      const y = event.clientY - rect.top; // y position within the element
+        // Calcular posición relativa del ratón dentro de la tarjeta
+        const relativeX = mouseX - card.left;
+        const relativeY = mouseY - card.top;
 
-      // Calcular posición relativa (0 a 1)
-      const relativeX = Math.min(Math.max(x / rect.width, 0), 1);
-      const relativeY = Math.min(Math.max(y / rect.height, 0), 1);
-
-      // Calcular desplazamiento del brillo dentro del componente
-      const brightX = (relativeX - 0.5) * rect.width;
-      const brightY = (relativeY - 0.5) * rect.height;
-
-      // Guardar la escala actual si existe (del efecto de audio)
-      let currentScale = 1;
-      const scaleMatch = bright.style.transform.match(/scale\(([^)]+)\)/);
-      if (scaleMatch && scaleMatch[1]) {
-        currentScale = parseFloat(scaleMatch[1]) || 1;
+        // Aplicar posición absoluta con transform
+        brightRef.current.style.transform = `translate(${relativeX - 96 / 2}px, ${relativeY - 92 / 2}px)`;
       }
-
-      // Aplicar transform con la posición pero manteniendo la escala
-      bright.style.transform = `translate(${brightX}px, ${brightY}px) scale(${currentScale})`;
+      rafId = requestAnimationFrame(updatePosition);
     };
 
-    const handleMouseLeave = () => {
-      // Al salir, centrar el brillo pero mantener la escala
-      if (brightRef.current) {
-        const currentScale = brightRef.current.style.transform.match(/scale\(([^)]+)\)/) 
-          ? parseFloat(brightRef.current.style.transform.match(/scale\(([^)]+)\)/)[1]) 
-          : 1;
-          
-        brightRef.current.style.transform = `translate(0px, 0px) scale(${currentScale})`;
-      }
-    };
+    // Start animation
+    updatePosition();
+    window.addEventListener("mousemove", handleMouseMove);
 
-    // Añadir los event listeners
-    const cardElement = cardRef.current;
-    cardElement.addEventListener('mousemove', handleMouseMove);
-    cardElement.addEventListener('mouseleave', handleMouseLeave);
-
-    // Limpiar los event listeners
     return () => {
-      cardElement.removeEventListener('mousemove', handleMouseMove);
-      cardElement.removeEventListener('mouseleave', handleMouseLeave);
+      window.removeEventListener("mousemove", handleMouseMove);
+      cancelAnimationFrame(rafId);
     };
   }, [brightRef, cardRef]);
-};
+
+  // Throttle function to limit the rate of mousemove handler
+  const throttle = (callback, delay = 10) => {
+    let lastCall = 0;
+    return function (...args) {
+      const now = new Date().getTime();
+      if (now - lastCall < delay) {
+        return;
+      }
+      lastCall = now;
+      return callback(...args);
+    };
+  };
+}

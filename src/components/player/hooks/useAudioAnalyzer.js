@@ -16,8 +16,8 @@ export const useAudioAnalyzer = (audioRef) => {
       }
 
       const analyzer = audioCtxRef.current.createAnalyser();
-      analyzer.fftSize = 32;
-      analyzer.smoothingTimeConstant = 0.3;
+      analyzer.fftSize = 256;
+      analyzer.smoothingTimeConstant = 0.1;
       analyserRef.current = analyzer;
 
       const source = audioCtxRef.current.createMediaElementSource(
@@ -42,6 +42,52 @@ export const useAudioAnalyzer = (audioRef) => {
     return dataArray;
   }, []);
 
+  const getFrequencySplitted = useCallback(() => {
+    const dataArray = getFrequencyData();
+    if (dataArray.length === 0) return null;
+
+    // Calcular rangos basados en el tamaño del array
+    const totalBins = dataArray.length;
+
+    // Rangos ajustados dinámicamente según el tamaño
+    const bassEnd = Math.floor(totalBins * 0.08); // 8% para bajos
+    const lowMidEnd = Math.floor(totalBins * 0.25); // 17% para medios bajos
+    const midEnd = Math.floor(totalBins * 0.5); // 25% para medios
+    const highMidEnd = Math.floor(totalBins * 0.7); // 20% para medios altos
+
+    // Extraer rangos
+    const bass = dataArray.slice(0, bassEnd);
+    const lowMid = dataArray.slice(bassEnd, lowMidEnd);
+    const mid = dataArray.slice(lowMidEnd, midEnd);
+    const highMid = dataArray.slice(midEnd, highMidEnd);
+    const treble = dataArray.slice(highMidEnd);
+
+    return {
+      bass,
+      lowMid,
+      mid,
+      highMid,
+      treble,
+    };
+  }, [getFrequencyData]);
+
+  const getFrequencyAverage = useCallback(() => {
+    const { bass, lowMid, mid, highMid, treble } = getFrequencySplitted();
+    // Calcular energía promedio por cada rango
+    const getAverage = (arr) =>
+      arr.reduce((sum, val) => sum + val, 0) / arr.length;
+
+    return {
+      bass: getAverage(bass) / 255,
+      lowMid: getAverage(lowMid) / 255,
+      mid: getAverage(mid) / 255,
+      highMid: getAverage(highMid) / 255,
+      treble: getAverage(treble) / 255,
+      total:
+        getAverage([...bass, ...lowMid, ...mid, ...highMid, ...treble]) / 255,
+    };
+  }, [getFrequencySplitted]);
+
   useEffect(() => {
     return () => {
       if (sourceNodeRef.current) {
@@ -57,6 +103,8 @@ export const useAudioAnalyzer = (audioRef) => {
   return {
     initAnalyzer,
     getFrequencyData,
+    getFrequencySplitted,
+    getFrequencyAverage,
     isAnalyzerReady,
   };
 };

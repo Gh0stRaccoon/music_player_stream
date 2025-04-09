@@ -5,7 +5,7 @@ function StatusLabel({ isPlaying }) {
     <div
       className={cn(
         "pointer-events-none absolute top-1/2 left-1/2 mb-4 flex h-full w-full -translate-1/2 items-center justify-center text-2xl transition-colors delay-1000 duration-1000",
-        !isPlaying && "bg-black/30 delay-75 duration-500",
+        !isPlaying && "bg-black/40 delay-75 duration-500",
       )}
     >
       {isPlaying ? (

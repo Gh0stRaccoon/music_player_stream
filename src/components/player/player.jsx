@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef } from "react";
+import { cn } from "@/utils/cn";
 import { useMouseEffect } from "@/components/player/hooks/useMouseEffect";
 import TimeProgress from "@/components/player/controls/time-progress";
 import StatusLabel from "@/components/player/controls/status-label";
@@ -13,7 +14,6 @@ import { MainControls } from "./controls/main-controls";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useAmbientSounds } from "./hooks/useAmbientSounds";
 import { useAudioAnalyzer } from "./hooks/useAudioAnalyzer";
-import { useAudioReactiveBrightness } from "./hooks/useReactiveBrightness";
 
 const SOUND_CONFIG = [
   {
@@ -45,8 +45,10 @@ const initialSounds = {
 export const Player = () => {
   const brightRef = useRef(null);
   const cardRef = useRef(null);
+  const canvasRef = useRef(null);
 
   useMouseEffect(brightRef, cardRef);
+
   const {
     audio,
     currentTime,
@@ -59,10 +61,8 @@ export const Player = () => {
     setTime,
   } = useAudioPlayer();
 
-  const { initAnalyzer, isAnalyzerReady, getFrequencyData } =
+  const { initAnalyzer, isAnalyzerReady, getFrequencyAverage } =
     useAudioAnalyzer(audio);
-
-  useAudioReactiveBrightness(brightRef, { isAnalyzerReady, getFrequencyData });
 
   const play = () => {
     if (!isAnalyzerReady) {
@@ -73,11 +73,16 @@ export const Player = () => {
   };
 
   useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
     if (isPlaying && isAnalyzerReady) {
-      const frequencyData = getFrequencyData();
-      console.log(frequencyData);
+      const { total } = getFrequencyAverage();
     }
-  }, [isPlaying, isAnalyzerReady, getFrequencyData, currentTime]);
+  }, [isPlaying, isAnalyzerReady, getFrequencyAverage, currentTime]);
 
   const { sounds, toggleSound } = useAmbientSounds(initialSounds);
 
@@ -89,9 +94,14 @@ export const Player = () => {
   return (
     <>
       <audio ref={audio} />
-
+      <canvas
+        ref={canvasRef}
+        className={cn("absolute inset-0 z-0")}
+        width={100}
+        height={100}
+      />
       <PlayerCard ref={cardRef} brightRef={brightRef}>
-        <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-white/10">
+        <div className="relative z-10 aspect-square w-full overflow-hidden rounded-lg bg-white/10 bg-[url(./default_img.jpeg)] bg-[size:cover]">
           <StatusLabel isPlaying={isPlaying} isLoading={isLoading} />
         </div>
         <TimeProgress
